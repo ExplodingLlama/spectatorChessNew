@@ -3,17 +3,23 @@
     <head>
         <title>SpectatorChess</title>
         <link rel="stylesheet" type="text/css" href="stylesheets/chessboard-0.3.0.min.css">
-	<script type="text/javascript" src="js/jquery-2.2.3.min.js"></script>
+        <script type="text/javascript" src="js/jquery-2.2.3.min.js"></script>
         <script type="text/javascript" src="js/chessboard-0.3.0.min.js"></script>
-	<script type="text/javascript" src="js/spectatorchess.js"></script>
+        <script type="text/javascript" src="js/chess.min.js"></script>
+        <script type="text/javascript" src="js/spectatorchess.js"></script>
     </head>
     <body>
         <div id="header">
             <span>Spectator Chess for your pleasure</span>
         </div>
 	<div class="row chessboard-section">
-    	    <div id="chessboard" style="width: 500px" class="chessboard"></div>
+        <div id="chessboard" style="width: 500px" class="chessboard"></div>
 	</div>
+    <div class="input area">
+        Enter FEN String (Castling info not necessary):<br>
+        <input type="text" id="feninput" size="80" placeholder="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"><br>
+        <button type="button" id="fenbutton">Click Me!</button> 
+    </div> 
     </body>
 </html>
 
