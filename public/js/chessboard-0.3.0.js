@@ -1331,6 +1331,10 @@ widget.highlight = function() {
 
 };
 */
+    
+widget.getSquareElIds = function() {
+    return SQUARE_ELS_IDS;
+}
 
 // move pieces
 widget.move = function() {

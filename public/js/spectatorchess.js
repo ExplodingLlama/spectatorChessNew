@@ -1,6 +1,7 @@
 $(document).ready(function() {
     
     "use strict";
+    
     var WHITE = 'w';
     var BLACK = 'b';
 
@@ -9,9 +10,14 @@ $(document).ready(function() {
     var files = ['a','b','c','d','e','f','g','h'];
     var ranks = ['1','2','3','4','5','6','7','8'];
     
+    var CSS = {
+        whiteTerritory: 'white-territory',
+        blackTerritory: 'black-territory'
+    };
+    
     //Auto-called when user makes a move
     var onChange = function(oldPos, newPos) {
-        makeGoodThingsHappen();
+        makeGoodThingsHappen(ChessBoard.objToFen(newPos));
     };
     
     var cfg = {
@@ -25,155 +31,311 @@ $(document).ready(function() {
     var chess = new Chess();
     
     board.start(true);
+    
+    makeGoodThingsHappen(board.fen());
 
     //Called when FEN is being added
     $('#fenbutton').on('click', function() {
         var fen = $('#feninput').val() || START_FEN;
         board.position(fen);
-        makeGoodThingsHappen();
+        makeGoodThingsHappen(fen);
     });
 
 
         
-    //Make a valid FEN string for Chess.js
+    //Make a valid FEN string for Chess.js castling info is not required
     function getValidFen(fen, color){
         var elements = fen.split(' ');
         return elements[0] + " " + color + " - - 0 1";
     }
     
     //This is the place to add new functionality, the function makeGoodThingsHappen()
-    function makeGoodThingsHappen(){
-        console.log(markTerritory(WHITE));
-        console.log(markTerritory(BLACK));
+    function makeGoodThingsHappen(fen){
+                
+        removeTerritoryMarkings();
+        markTerritory(fen, WHITE);
+        markTerritory(fen, BLACK);
     }
     
-    function markTerritory(color){
-        
-        //This one stores the results
+    function markTerritory(fen, color){
+
+        //load board state into chess.js
+        chess.load(getValidFen(fen, color));
+        //result will be stored in this
         var attackedSquares = [];
         
-        var newFen = getValidFen(board.fen(),color);
-        
-        //Get all legal moves for this color
-        chess.load(newFen);
-        var legalMoves = chess.moves();
-        
-        //We separate all non pawn moves from the array
-        var nonPawnMoves = [];
-        $.each(legalMoves, function(index, value) {
-           if(!isPawnMove(value)){
-               nonPawnMoves.push(value);
-           } 
-        });
-        
-        //Add the non-pawn moves to attackedSquares
-        $.each(nonPawnMoves, function(index, value) {
-            attackedSquares.push(getDestinationSquare(value));
-        });
-        
-                
-        //Now we add pawn capture squares for each pawn
-
-        $.each(files, function(index1, value1) {
-           $.each(ranks, function(index2, value2) {
-               var piece = chess.get(value1+value2);
-               if(piece && piece.color==(color) && piece.type==('p')){
-                   //This is our guy.
-                   //Two squares for each pawn, unless they are at the ends.
-                   
-                   //Get the rank of the two attacked squares
-                   var rank = ranks[0];
-                   if(color==(WHITE)){
-                       rank = ranks[index2+1];
-                   } else {
-                       rank = ranks[index2-1];
-                   }
-                   
-                   //Add the squares only if they are valid.
-                   if(index1 > 0){
-                       attackedSquares.push(files[index1-1] + rank);
-                   }
-                   if(index1 < files.length-1){
-                       attackedSquares.push(files[index1+1] + rank);
+        //We take each piece of this color and according to what piece it is, we find all the squares it attacks
+        $.each(files, function(fileIndex, fileValue) {
+           $.each(ranks, function(rankIndex, rankValue) {
+               var piece = chess.get(fileValue+rankValue);
+               var attckedSquaresPerPiece = [];
+               if(piece && piece.color == color){
+                   switch(piece.type){
+                       case 'b': //Bishop
+                           attckedSquaresPerPiece = getBishopTerritory(fileIndex, rankIndex);
+                           break;
+                       case 'q': //Queen
+                           attckedSquaresPerPiece = getQueenTerritory(fileIndex, rankIndex);
+                           break;
+                       case 'k': //King
+                           attckedSquaresPerPiece = getKingTerritory(fileIndex, rankIndex);
+                           break;
+                       case 'n': //Knight
+                           attckedSquaresPerPiece = getKnightTerritory(fileIndex, rankIndex);
+                           break;
+                       case 'r': //Rook
+                           attckedSquaresPerPiece = getRookTerritory(fileIndex, rankIndex);
+                           break;
+                       case 'p': //teeny tiny cute can't-move-back Pawn
+                           attckedSquaresPerPiece = getPawnTerritory(fileIndex, rankIndex, color);
+                           break;
                    }
                }
+               $.each(attckedSquaresPerPiece, function(i, j) {
+                   attackedSquares.push(j);
+               });
            }); 
         });
         
-        //Adding squares which have a piece of the given color and are attacked by some other piece of the same color
-        $.each(files,function(index1, value1) {
-           $.each(ranks,function(index2,value2) {
-               var currentSquare = value1+value2;
-               var piece = chess.get(currentSquare);
-               //if there is a piece of this color
-               if(piece && piece.color==color){
-                   //remove piece
-                   var modifiedFen = removePieceFromFen(board.fen(),index1, index2);
-                   chess.load(getValidFen(modifiedFen, color));
-                   //get valid moves
-                   var moves = chess.moves();
-                   //Only look at the current square
-                   $.each(moves, function(index3, value3) {
-                       if(getDestinationSquare(value) == currentSquare){
-                           attackedSquares.push(currentSquare);
-                       }
-                   });
-               }
-           }); 
-        });
-        
-        return attackedSquares;
+        addTerritoryMarkings(attackedSquares, color);
     }
     
-    //This function removes the given piece and returns the modified fen string 
-    function removePieceFromFen(fen,fileIndex,rankIndex){
-        //remove unnecessary things from the end
-        var modifiedFen = fen.split(' ')[0];
+    function removeTerritoryMarkings() {
         
-        var modifiedFenArray = modifiedFen.split('/');
-        var rankString = modifiedFenArray[ranks.length-rankIndex];
-        var rankStringArray = rankString.split('');
+        var squareElementIds = board.getSquareElIds();
+        $.each(files, function(fileIndex, fileValue) {
+           $.each(ranks, function(rankIndex, rankValue) {
+               $('#' + squareElementIds[fileValue+rankValue]).removeClass(CSS.blackTerritory);
+               $('#' + squareElementIds[fileValue+rankValue]).removeClass(CSS.whiteTerritory);
+           }); 
+        });
+    }
+    
+    function addTerritoryMarkings(attackedSquares, color) {
         
-        //iterate to the correct file number
-        var i = 0;
-        while(fileIndex>0){
-            if(rankStringArray[i].match(/[1-8]/)) fileIndex-rankStringArray[i];
-            else fileIndex--;
+        var squareElementIds = board.getSquareElIds();
+        var cssClass;
+        
+        if(color == WHITE) 
+            cssClass = CSS.whiteTerritory; 
+        else cssClass = CSS.blackTerritory;
+        
+        $.each(attackedSquares, function(index, value) {
+            $('#' + squareElementIds[value]).addClass(cssClass);
+        })
+        
+    }
+    
+    function getPawnTerritory(fileIndex, rankIndex, color) {
+        var result = [];
+        
+        //Only two possible squares
+        var attackedRankI;
+        if(color == WHITE) attackedRankI = rankIndex+1;
+        else attackedRankI = rankIndex-1;
+        
+        if(attackedRankI>=0 && attackedRankI<=ranks.length-1) {
+            if(fileIndex>0) result.push(files[fileIndex-1] + ranks[attackedRankI]);
+            if(fileIndex<files.length-1) result.push(files[fileIndex+1] + ranks[attackedRankI]);
         }
-        //Remove the piece
-        rankStringArray[i] = 1;
-        //Recreate Rank String
-        var newRankString = "";
-        $.each(rankStringArray, function(index, value) {
-            newRankString+=value;
-        });
-        //UpdateFenArray
-        modifiedFenArray[ranks.length-rankIndex] = newRankString;
-        //Create Fen
-        var result = "";
-        $.each(modifiedFenArray, function(index, value) {
-            result+=value;
-            if(index<modifiedFenArray.length-1) result+='/';
-        });
         
         return result;
     }
     
-    function getDestinationSquare(move){
-        return move.substr(move.length-2);
+    function getKnightTerritory(fileIndex, rankIndex) {
+        
+        var result = [];
+        
+        //Eight possible squares
+        //First, two squares to the right
+        var fileI = fileIndex+2;
+        if(fileI <= files.length-1) {
+            if(rankIndex<ranks.length-1) result.push(files[fileI] + ranks[rankIndex+1]);
+            if(rankIndex>0) result.push(files[fileI] + ranks[rankIndex-1]);
+        }
+        
+        //Next, twp squares to the left
+        fileI = fileIndex-2;
+        if(fileI>=0) {
+            if(rankIndex<ranks.length-1) result.push(files[fileI] + ranks[rankIndex+1]);
+            if(rankIndex>0) result.push(files[fileI] + ranks[rankIndex-1]);
+        }
+        
+        //next, two squares up
+        var rankI = rankIndex+2;
+        if(rankI <= ranks.length-1) {
+            if(fileIndex<files.length-1) result.push(files[fileIndex+1] + ranks[rankI]);
+            if(fileIndex>0) result.push(files[fileIndex-1] + ranks[rankI]);
+        }
+        
+        //Next, two squares down
+        rankI = rankIndex-2;
+        if(rankI>=0) {
+            if(fileIndex<files.length-1) result.push(files[fileIndex+1] + ranks[rankI]);
+            if(fileIndex>0) result.push(files[fileIndex-1] + ranks[rankI]);
+        }
+        
+        return result;
     }
-
-    function isPawnMove(move){
-        //Simple pawn moves
-        var result = move.match(/^[a-h][1-8]$/);
-        if(result && result.length > 0){
-            return true;
+    
+    function getKingTerritory(fileIndex, rankIndex) {
+        
+        var result = [];
+        //One square each direction
+        //to the left
+        if(fileIndex>0) {
+            var fileI = fileIndex-1;
+            if(rankIndex>0) result.push(files[fileI] + ranks[rankIndex-1]);
+            result.push(files[fileI] + ranks[rankIndex]);
+            if(rankIndex<ranks.length-1) result.push(files[fileI] + ranks[rankIndex+1]);
         }
-        //Captures
-        result = move.match(/^[a-h]x[a-h][1-8]$/);
-        if(result && result.length > 0){
-            return true;
+        //to the right
+        if(fileIndex<files.length-1) {
+            var fileI = fileIndex+1;
+            if(rankIndex>0) result.push(files[fileI] + ranks[rankIndex-1]);
+            result.push(files[fileI] + ranks[rankIndex]);
+            if(rankIndex<ranks.length-1) result.push(files[fileI] + ranks[rankIndex+1]);
         }
-        return false;
+        //up
+        if(rankIndex<ranks.length-1) result.push(files[fileIndex] + ranks[rankIndex+1]);
+        //down
+        if(rankIndex>0) result.push(files[fileIndex] + ranks[rankIndex-1]);
+        
+        return result;
+    }
+    
+    function getQueenTerritory(fileIndex, rankIndex) {
+        
+        //This is just a combination of rook and bishop squares.
+        var bishopResult = getBishopTerritory(fileIndex, rankIndex);
+        var rookResult = getRookTerritory(fileIndex, rankIndex);
+        return bishopResult.concat(rookResult);
+    }
+    
+    function getRookTerritory(fileIndex, rankIndex) {
+        var result = [];
+        //Four Directions
+        
+        //going right
+        var fileI = fileIndex;
+        while(true) {
+            if(fileI>=files.length-1) break;
+            fileI++;
+            //Add to list
+            var square = files[fileI] + ranks[rankIndex];
+            result.push(square);
+            //If there is a piece on this square, break out
+            var piece = chess.get(square);
+            if(piece && piece!='r' && piece!='q') break;
+        }
+        
+        //going left
+        fileI = fileIndex;
+        while(true) {
+            if(fileI<=0) break;
+            fileI--;
+            //Add to list
+            var square = files[fileI] + ranks[rankIndex];
+            result.push(square);
+            //If there is a piece on this square, break out
+            var piece = chess.get(square);
+            if(piece && piece!='r' && piece!='q') break;
+        }
+        
+        //going up
+        var rankI = rankIndex;
+        while(true) {
+            if(rankI>=ranks.length-1) break;
+            rankI++;
+            var square = files[fileIndex] + ranks[rankI];
+            result.push(square);
+            //if there is a piece on this square, breakout
+            var piece = chess.get(square);
+            if(piece && piece!='r' && piece!='q') break;
+        }
+        
+        //going down
+        rankI = rankIndex;
+        while(true) {
+            if(rankI<=0) break;
+            rankI--;
+            var square = files[fileIndex] + ranks[rankI];
+            result.push(square);
+            //if there is a piece on this square, breakout
+            var piece = chess.get(square);
+            if(piece && piece!='r' && piece!='q') break;
+        }
+        
+        return result;
+    }
+    
+    //Find all the squares attacked by this bishop on this file and this rank
+    function getBishopTerritory(fileIndex, rankIndex) {
+        var result = [];
+        //Four directions
+        //First one, going upward and right, and second one, going downward and right, inside the loop
+        var fileI = fileIndex;
+        var rankUp = rankIndex;
+        var rankDown = rankIndex;
+        while(true){
+            
+            //If last file, break out.
+            if(fileI>=files.length-1) break;
+            
+            fileI++;
+            //If not the last rank, do some shit
+            if(rankUp<ranks.length-1) {
+                rankUp++;
+                var square = files[fileI] + ranks[rankUp];
+                //Add this square to the list
+                result.push(square);
+                //If there is a piece on this square, short circuit this part from further executions by making the value of rankUp = 100 because no one will create a board that big haha.
+                var piece = chess.get(square);
+                if(piece && piece != 'q' && piece !='b') rankUp=100;
+            }
+            
+            //If not the first rank, do some shit
+            if(rankDown>0) {
+                rankDown--;
+                var square = files[fileI] + ranks[rankDown];
+                //Add this square to the list
+                result.push(square);
+                //If there is a piece on this square, short circuit this part from further executions by making the value of rankDown = 0 because that'll do pig, that'll do.
+                var piece = chess.get(square);
+                if(piece && piece != 'q' && piece !='b') rankDown = 0;
+            }
+        }
+        //Second one, going left and upward and left and downward
+        fileI = fileIndex;
+        rankUp = rankIndex;
+        rankDown = rankIndex;
+        while(true){
+            //If the first file, break out
+            if(fileI<=0) break;
+            
+            fileI--;
+            //If not the last rank, do some shit
+            if(rankUp<ranks.length-1) {
+                rankUp++;
+                var square = files[fileI] + ranks[rankUp];
+                //Add this square to the list
+                result.push(square);
+                //If there is a piece on this square, short circuit this part from further executions by making the value of rankUp = 100 because no one will create a board that big haha.
+                var piece = chess.get(square);
+                if(piece && piece != 'q' && piece !='b') rankUp=100;
+            }
+            
+            //If not the first rank, do some shit
+            if(rankDown>0) {
+                rankDown--;
+                var square = files[fileI] + ranks[rankDown];
+                //Add this square to the list
+                result.push(square);
+                //If there is a piece on this square, short circuit this part from further executions by making the value of rankDown = 0 because that'll do pig, that'll do.
+                var piece = chess.get(square);
+                if(piece && piece != 'q' && piece !='b') rankDown = 0;
+            }
+        }
+        return result;
     }
 });
