@@ -41,20 +41,52 @@
   color: #b58863;
 }
 
-.white-territory.white-1e1d7 {
-    background-color: #6D9ADD;
+.black-territory1.white-1e1d7 {
+    background-color: #F49E84;
 }
 
-.white-territory.black-3c85d {
-    background-color: #5275B8;
-}
-
-.black-territory.white-1e1d7 {
+.black-territory2.white-1e1d7 {
     background-color: #F86352;
 }
 
-.black-territory.black-3c85d {
-    background-color: #DD3E2D;
+.black-territory3.white-1e1d7 {
+    background-color: #FC2721;
+}
+
+.white-territory1.black-3c85d {
+    background-color: #737C9C;
+}
+
+.white-territory2.black-3c85d {
+    background-color: #4272C6;
+}
+
+.white-territory3.black-3c85d {
+    background-color: #1069F1;
+}
+
+.white-territory1.white-1e1d7 {
+    background-color: #99AFD0;
+}
+
+.white-territory2.white-1e1d7 {
+    background-color: #5790E4;
+}
+
+.white-territory3.white-1e1d7 {
+    background-color: #1670F8;
+}
+
+.black-territory1.black-3c85d {
+    background-color: #D0573F;
+}
+
+.black-territory2.black-3c85d {
+    background-color: #E43124;
+}
+
+.black-territory3.black-3c85d {
+    background-color: #F80C09;
 }
 
 /* black square */

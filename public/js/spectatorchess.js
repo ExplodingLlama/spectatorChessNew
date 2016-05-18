@@ -11,8 +11,12 @@ $(document).ready(function() {
     var ranks = ['1','2','3','4','5','6','7','8'];
     
     var CSS = {
-        whiteTerritory: 'white-territory',
-        blackTerritory: 'black-territory'
+        whiteT1: 'white-territory1',
+        blackT1: 'black-territory1',
+        whiteT2: 'white-territory2',
+        blackT2: 'black-territory2',
+        whiteT3: 'white-territory3',
+        blackT3: 'black-territory3',
     };
     
     //Auto-called when user makes a move
@@ -32,6 +36,8 @@ $(document).ready(function() {
     
     board.start(true);
     
+    var territoryMap = {};
+    
     makeGoodThingsHappen(board.fen());
 
     //Called when FEN is being added
@@ -44,25 +50,24 @@ $(document).ready(function() {
 
         
     //Make a valid FEN string for Chess.js castling info is not required
-    function getValidFen(fen, color){
+    function getValidFen(fen, color) {
         var elements = fen.split(' ');
         return elements[0] + " " + color + " - - 0 1";
     }
     
     //This is the place to add new functionality, the function makeGoodThingsHappen()
-    function makeGoodThingsHappen(fen){
+    function makeGoodThingsHappen(fen) {
                 
         removeTerritoryMarkings();
         markTerritory(fen, WHITE);
         markTerritory(fen, BLACK);
+        addTerritoryMarkings();
     }
     
-    function markTerritory(fen, color){
+    function markTerritory(fen, color) {
 
         //load board state into chess.js
         chess.load(getValidFen(fen, color));
-        //result will be stored in this
-        var attackedSquares = [];
         
         //We take each piece of this color and according to what piece it is, we find all the squares it attacks
         $.each(files, function(fileIndex, fileValue) {
@@ -91,13 +96,19 @@ $(document).ready(function() {
                            break;
                    }
                }
-               $.each(attckedSquaresPerPiece, function(i, j) {
-                   attackedSquares.push(j);
+               
+               $.each(attckedSquaresPerPiece, function(index, value) {
+                   
+                   if(territoryMap[value] == null) {
+                       territoryMap[value] = 0;
+                   }
+                   
+                   if(color == WHITE) territoryMap[value]++;
+                   else territoryMap[value]--;
                });
            }); 
         });
-        
-        addTerritoryMarkings(attackedSquares, color);
+
     }
     
     function removeTerritoryMarkings() {
@@ -105,23 +116,53 @@ $(document).ready(function() {
         var squareElementIds = board.getSquareElIds();
         $.each(files, function(fileIndex, fileValue) {
            $.each(ranks, function(rankIndex, rankValue) {
-               $('#' + squareElementIds[fileValue+rankValue]).removeClass(CSS.blackTerritory);
-               $('#' + squareElementIds[fileValue+rankValue]).removeClass(CSS.whiteTerritory);
+               territoryMap[fileValue+rankValue] = 0;
+               $('#' + squareElementIds[fileValue+rankValue]).removeClass(CSS.blackT1);
+               $('#' + squareElementIds[fileValue+rankValue]).removeClass(CSS.whiteT1);
+               $('#' + squareElementIds[fileValue+rankValue]).removeClass(CSS.blackT2);
+               $('#' + squareElementIds[fileValue+rankValue]).removeClass(CSS.whiteT2);
+               $('#' + squareElementIds[fileValue+rankValue]).removeClass(CSS.blackT3);
+               $('#' + squareElementIds[fileValue+rankValue]).removeClass(CSS.whiteT3);
            }); 
         });
     }
     
-    function addTerritoryMarkings(attackedSquares, color) {
+    function addTerritoryMarkings() {
         
         var squareElementIds = board.getSquareElIds();
         var cssClass;
         
-        if(color == WHITE) 
-            cssClass = CSS.whiteTerritory; 
-        else cssClass = CSS.blackTerritory;
-        
-        $.each(attackedSquares, function(index, value) {
-            $('#' + squareElementIds[value]).addClass(cssClass);
+        $.each(territoryMap, function(index, value) {
+            switch(value) {
+                case 1: cssClass = CSS.whiteT1;
+                    break;
+                case 2: cssClass = CSS.whiteT2;
+                    break;
+                case 3:
+                case 4:
+                case 5:
+                case 6:
+                case 7:
+                case 8: cssClass = CSS.whiteT3;
+                    break;
+                case -1: cssClass = CSS.blackT1;
+                    break;
+                case -2: cssClass = CSS.blackT2;
+                    break;
+                case -3: 
+                case -4:
+                case -5:
+                case -6:
+                case -7:
+                case -8:
+                    cssClass = CSS.blackT3;
+                    break;
+                default: cssClass = null;
+                    break;
+                    
+            }
+            
+            $('#' + squareElementIds[index]).addClass(cssClass);
         })
         
     }
@@ -226,7 +267,7 @@ $(document).ready(function() {
             result.push(square);
             //If there is a piece on this square, break out
             var piece = chess.get(square);
-            if(piece && piece!='r' && piece!='q') break;
+            if(piece && piece.type!='r' && piece.type!='q') break;
         }
         
         //going left
@@ -239,7 +280,7 @@ $(document).ready(function() {
             result.push(square);
             //If there is a piece on this square, break out
             var piece = chess.get(square);
-            if(piece && piece!='r' && piece!='q') break;
+            if(piece && piece.type!='r' && piece.type!='q') break;
         }
         
         //going up
@@ -251,7 +292,7 @@ $(document).ready(function() {
             result.push(square);
             //if there is a piece on this square, breakout
             var piece = chess.get(square);
-            if(piece && piece!='r' && piece!='q') break;
+            if(piece && piece.type!='r' && piece.type!='q') break;
         }
         
         //going down
@@ -263,7 +304,7 @@ $(document).ready(function() {
             result.push(square);
             //if there is a piece on this square, breakout
             var piece = chess.get(square);
-            if(piece && piece!='r' && piece!='q') break;
+            if(piece && piece.type!='r' && piece.type!='q') break;
         }
         
         return result;
@@ -291,7 +332,7 @@ $(document).ready(function() {
                 result.push(square);
                 //If there is a piece on this square, short circuit this part from further executions by making the value of rankUp = 100 because no one will create a board that big haha.
                 var piece = chess.get(square);
-                if(piece && piece != 'q' && piece !='b') rankUp=100;
+                if(piece && piece.type != 'q' && piece.type !='b') rankUp=100;
             }
             
             //If not the first rank, do some shit
@@ -302,7 +343,7 @@ $(document).ready(function() {
                 result.push(square);
                 //If there is a piece on this square, short circuit this part from further executions by making the value of rankDown = 0 because that'll do pig, that'll do.
                 var piece = chess.get(square);
-                if(piece && piece != 'q' && piece !='b') rankDown = 0;
+                if(piece && piece.type != 'q' && piece.type !='b') rankDown = 0;
             }
         }
         //Second one, going left and upward and left and downward
@@ -322,7 +363,7 @@ $(document).ready(function() {
                 result.push(square);
                 //If there is a piece on this square, short circuit this part from further executions by making the value of rankUp = 100 because no one will create a board that big haha.
                 var piece = chess.get(square);
-                if(piece && piece != 'q' && piece !='b') rankUp=100;
+                if(piece && piece.type != 'q' && piece.type !='b') rankUp=100;
             }
             
             //If not the first rank, do some shit
@@ -333,7 +374,7 @@ $(document).ready(function() {
                 result.push(square);
                 //If there is a piece on this square, short circuit this part from further executions by making the value of rankDown = 0 because that'll do pig, that'll do.
                 var piece = chess.get(square);
-                if(piece && piece != 'q' && piece !='b') rankDown = 0;
+                if(piece && piece.type != 'q' && piece.type !='b') rankDown = 0;
             }
         }
         return result;
