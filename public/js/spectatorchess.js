@@ -17,10 +17,14 @@ $(document).ready(function() {
         blackT2: 'black-territory2',
         whiteT3: 'white-territory3',
         blackT3: 'black-territory3',
+        attacked: 'attacked'
     };
+    
+    var currentFen = START_FEN;
     
     //Auto-called when user makes a move
     var onChange = function(oldPos, newPos) {
+        currentFen = ChessBoard.objToFen(newPos);
         makeGoodThingsHappen(ChessBoard.objToFen(newPos));
     };
     
@@ -36,13 +40,19 @@ $(document).ready(function() {
     
     board.start(true);
     
-    var territoryMap = {};
+    //index = square name, value = numerical value, +ve for white territory, -ve for black
+    var territoryMap = {}; 
+    
+    //index = square name, value = numerical value of the lightest piece attacking this square
+    var lightestAttackingPieceMapWhite = {}; 
+    var lightestAttackingPieceMapBlack = {};
+    
+    //list of attacked pieces
+    var attackedPieces = [];
     
     var pgnMoveList = [];
     
     var pgnMoveIndex = 0;
-    
-    var lastValidFenFromChessJs = null;
     
     makeGoodThingsHappen(board.fen());
 
@@ -60,8 +70,7 @@ $(document).ready(function() {
         pgnMoveList = chess.get_pgn_move_list();
         pgnMoveIndex = 0;
         chess.reset();
-        lastValidFenFromChessJs = chess.fen();
-        board.position(lastValidFenFromChessJs);
+        board.position(chess.fen());
     });
     
     $('#forwardbutton').on('click', function() {
@@ -71,11 +80,15 @@ $(document).ready(function() {
            
         pgnMoveIndex++;
         //make move on chess.js
-        chess.load(lastValidFenFromChessJs);
-        chess.move(move);
+        chess.reset();
+        var i = 0;
+        for(i=0;i<pgnMoveIndex;i++){
+            var move = pgnMoveList[i];
+            //make move on chess.js
+            chess.move(move);
+        }
         var fen = chess.fen();
         board.position(fen);
-        lastValidFenFromChessJs = fen;
     });
     
     $('#backbutton').on('click', function() {
@@ -91,7 +104,6 @@ $(document).ready(function() {
         }
         var fen = chess.fen();
         board.position(fen);
-        lastValidFenFromChessJs = fen;
     });
         
     //Make a valid FEN string for Chess.js castling info is not required
@@ -107,6 +119,66 @@ $(document).ready(function() {
         markTerritory(fen, WHITE);
         markTerritory(fen, BLACK);
         addTerritoryMarkings();
+        //Mark pieces under attack
+        removeAttackedPieceMarkings();
+        markAttackedPieces();
+    }
+    
+    function removeAttackedPieceMarkings() {
+        var squareElementIds = board.getSquareElIds();
+        $.each(attackedPieces, function(index, value) {
+            $('#' + squareElementIds[value]).removeClass(CSS.attacked);
+        });
+        
+        attackedPieces = [];
+    }
+    
+    function markAttackedPieces() {
+        $.each(files, function(fileIndex, fileValue) {
+            $.each(ranks, function(rankIndex, rankValue) {
+                var square = fileValue+rankValue;
+                var piece = chess.get(square);
+                
+                if(piece!=null){
+                    //if the piece is on a territory of the other color mark it attacked
+                    if((territoryMap[square]>0 && piece.color == BLACK) ||
+                       (territoryMap[square]<0 && piece.color == WHITE)) {
+                        attackedPieces.push(square);
+                    }
+                    //if the piece is attacked by a lighter piece, mark it attacked
+                    if((piece.color == WHITE && lightestAttackingPieceMapBlack[square]<getPieceValue(piece)) ||
+                       (piece.color == BLACK && lightestAttackingPieceMapWhite[square]<getPieceValue(piece))) {
+                        attackedPieces.push(square);
+                    }
+                }
+            });
+        });
+        
+        var squareElementIds = board.getSquareElIds();
+        $.each(attackedPieces, function(index, value) {
+            //remove other markings
+            $('#' + squareElementIds[value]).removeClass(CSS.blackT1);
+            $('#' + squareElementIds[value]).removeClass(CSS.whiteT1);
+            $('#' + squareElementIds[value]).removeClass(CSS.blackT2);
+            $('#' + squareElementIds[value]).removeClass(CSS.whiteT2);
+            $('#' + squareElementIds[value]).removeClass(CSS.blackT3);
+            $('#' + squareElementIds[value]).removeClass(CSS.whiteT3);
+            
+            //Add this attaked one
+            $('#' + squareElementIds[value]).addClass(CSS.attacked);
+        })
+    }
+    
+    function getPieceValue(piece) {
+        switch(piece.type) {
+            case 'p': return 1;
+            case 'b': return 3;
+            case 'n': return 3;
+            case 'k': return 100;
+            case 'q': return 9;
+            case 'r': return 5;
+            default: return 0;
+        }
     }
     
     function markTerritory(fen, color) {
@@ -122,19 +194,19 @@ $(document).ready(function() {
                if(piece && piece.color == color){
                    switch(piece.type){
                        case 'b': //Bishop
-                           attckedSquaresPerPiece = getBishopTerritory(fileIndex, rankIndex);
+                           attckedSquaresPerPiece = getBishopTerritory(fileIndex, rankIndex, color, true);
                            break;
                        case 'q': //Queen
-                           attckedSquaresPerPiece = getQueenTerritory(fileIndex, rankIndex);
+                           attckedSquaresPerPiece = getQueenTerritory(fileIndex, rankIndex, color);
                            break;
                        case 'k': //King
-                           attckedSquaresPerPiece = getKingTerritory(fileIndex, rankIndex);
+                           attckedSquaresPerPiece = getKingTerritory(fileIndex, rankIndex, color);
                            break;
                        case 'n': //Knight
-                           attckedSquaresPerPiece = getKnightTerritory(fileIndex, rankIndex);
+                           attckedSquaresPerPiece = getKnightTerritory(fileIndex, rankIndex, color);
                            break;
                        case 'r': //Rook
-                           attckedSquaresPerPiece = getRookTerritory(fileIndex, rankIndex);
+                           attckedSquaresPerPiece = getRookTerritory(fileIndex, rankIndex, color, true);
                            break;
                        case 'p': //teeny tiny cute can't-move-back Pawn
                            attckedSquaresPerPiece = getPawnTerritory(fileIndex, rankIndex, color);
@@ -163,6 +235,9 @@ $(document).ready(function() {
     }
     
     function removeTerritoryMarkings() {
+        
+        lightestAttackingPieceMapBlack = {};
+        lightestAttackingPieceMapWhite = {};
         
         var squareElementIds = board.getSquareElIds();
         $.each(files, function(fileIndex, fileValue) {
@@ -231,10 +306,18 @@ $(document).ready(function() {
             if(fileIndex<files.length-1) result.push(files[fileIndex+1] + ranks[attackedRankI]);
         }
         
+        //update the lightest attacking piece map
+        var attackingMap;
+        if(color == WHITE) attackingMap = lightestAttackingPieceMapWhite;
+        else attackingMap = lightestAttackingPieceMapBlack;
+        $.each(result, function(index, value) {
+           attackingMap[value] = 1; //1 for pawn
+        });
+        
         return result;
     }
     
-    function getKnightTerritory(fileIndex, rankIndex) {
+    function getKnightTerritory(fileIndex, rankIndex, color) {
         
         var result = [];
         
@@ -267,21 +350,32 @@ $(document).ready(function() {
             if(fileIndex>0) result.push(files[fileIndex-1] + ranks[rankI]);
         }
         
+        //update the lightest attacking piece map
+        var attackingMap;
+        if(color == WHITE) attackingMap = lightestAttackingPieceMapWhite;
+        else attackingMap = lightestAttackingPieceMapBlack;
+        $.each(result, function(index, value) {
+            //if none attacking yet
+            if(attackingMap[value]==null || attackingMap[value]>3) {
+               attackingMap[value] = 3; //3 for knght and bishop
+            }
+        });
+        
         return result;
     }
     
-    function getKingTerritory(fileIndex, rankIndex) {
+    function getKingTerritory(fileIndex, rankIndex, color) {
         
         var result = [];
         //One square each direction
-        //to the left
+        //to the left three squares
         if(fileIndex>0) {
             var fileI = fileIndex-1;
             if(rankIndex>0) result.push(files[fileI] + ranks[rankIndex-1]);
             result.push(files[fileI] + ranks[rankIndex]);
             if(rankIndex<ranks.length-1) result.push(files[fileI] + ranks[rankIndex+1]);
         }
-        //to the right
+        //to the right three squares
         if(fileIndex<files.length-1) {
             var fileI = fileIndex+1;
             if(rankIndex>0) result.push(files[fileI] + ranks[rankIndex-1]);
@@ -293,18 +387,42 @@ $(document).ready(function() {
         //down
         if(rankIndex>0) result.push(files[fileIndex] + ranks[rankIndex-1]);
         
+        //update the lightest attacking piece map
+        var attackingMap;
+        if(color == WHITE) attackingMap = lightestAttackingPieceMapWhite;
+        else attackingMap = lightestAttackingPieceMapBlack;
+        $.each(result, function(index, value) {
+            //if none attacking yet
+            if(attackingMap[value]==null || attackingMap[value]>100) {
+               attackingMap[value] = 100; //100 for king
+            }
+        });
+        
         return result;
     }
     
-    function getQueenTerritory(fileIndex, rankIndex) {
+    function getQueenTerritory(fileIndex, rankIndex, color) {
         
         //This is just a combination of rook and bishop squares.
-        var bishopResult = getBishopTerritory(fileIndex, rankIndex);
-        var rookResult = getRookTerritory(fileIndex, rankIndex);
-        return bishopResult.concat(rookResult);
+        var bishopResult = getBishopTerritory(fileIndex, rankIndex, color, false);
+        var rookResult = getRookTerritory(fileIndex, rankIndex, color, false);
+        var result = bishopResult.concat(rookResult);
+        
+        //update the lightest attacking piece map
+        var attackingMap;
+        if(color == WHITE) attackingMap = lightestAttackingPieceMapWhite;
+        else attackingMap = lightestAttackingPieceMapBlack;
+        $.each(result, function(index, value) {
+            //if none attacking yet
+            if(attackingMap[value]==null || attackingMap[value]>9) {
+               attackingMap[value] = 9; //9 for Queen
+            }
+        });
+        
+        return result;
     }
     
-    function getRookTerritory(fileIndex, rankIndex) {
+    function getRookTerritory(fileIndex, rankIndex, color, attackedPieceMarking) {
         var result = [];
         //Four Directions
         
@@ -318,7 +436,7 @@ $(document).ready(function() {
             result.push(square);
             //If there is a piece on this square, break out
             var piece = chess.get(square);
-            if(piece && piece.type!='r' && piece.type!='q') break;
+            if(piece && ((piece.type!='r' && piece.type!='q') || piece.color!=color)) break;
         }
         
         //going left
@@ -331,7 +449,7 @@ $(document).ready(function() {
             result.push(square);
             //If there is a piece on this square, break out
             var piece = chess.get(square);
-            if(piece && piece.type!='r' && piece.type!='q') break;
+            if(piece && ((piece.type!='r' && piece.type!='q') || piece.color!=color)) break;
         }
         
         //going up
@@ -343,7 +461,7 @@ $(document).ready(function() {
             result.push(square);
             //if there is a piece on this square, breakout
             var piece = chess.get(square);
-            if(piece && piece.type!='r' && piece.type!='q') break;
+            if(piece && ((piece.type!='r' && piece.type!='q') || piece.color!=color)) break;
         }
         
         //going down
@@ -355,14 +473,27 @@ $(document).ready(function() {
             result.push(square);
             //if there is a piece on this square, breakout
             var piece = chess.get(square);
-            if(piece && piece.type!='r' && piece.type!='q') break;
+            if(piece && ((piece.type!='r' && piece.type!='q') || piece.color!=color)) break;
         }
+        
+        if(attackedPieceMarking==false) return result;
+        
+        //update the lightest attacking piece map
+        var attackingMap;
+        if(color == WHITE) attackingMap = lightestAttackingPieceMapWhite;
+        else attackingMap = lightestAttackingPieceMapBlack;
+        $.each(result, function(index, value) {
+            //if none attacking yet
+            if(attackingMap[value]==null || attackingMap[value]>5) {
+               attackingMap[value] = 5; //5 for Rook
+            }
+        });
         
         return result;
     }
     
     //Find all the squares attacked by this bishop on this file and this rank
-    function getBishopTerritory(fileIndex, rankIndex) {
+    function getBishopTerritory(fileIndex, rankIndex, color, attackedPieceMarking) {
         var result = [];
         //Four directions
         //First one, going upward and right, and second one, going downward and right, inside the loop
@@ -383,7 +514,7 @@ $(document).ready(function() {
                 result.push(square);
                 //If there is a piece on this square, short circuit this part from further executions by making the value of rankUp = 100 because no one will create a board that big haha.
                 var piece = chess.get(square);
-                if(piece && piece.type != 'q' && piece.type !='b') rankUp=100;
+                if(piece && ((piece.type != 'q' && piece.type !='b') || piece.color!=color)) rankUp=100;
             }
             
             //If not the first rank, do some shit
@@ -394,7 +525,7 @@ $(document).ready(function() {
                 result.push(square);
                 //If there is a piece on this square, short circuit this part from further executions by making the value of rankDown = 0 because that'll do pig, that'll do.
                 var piece = chess.get(square);
-                if(piece && piece.type != 'q' && piece.type !='b') rankDown = 0;
+                if(piece && ((piece.type != 'q' && piece.type !='b') || piece.color!=color)) rankDown = 0;
             }
         }
         //Second one, going left and upward and left and downward
@@ -414,7 +545,7 @@ $(document).ready(function() {
                 result.push(square);
                 //If there is a piece on this square, short circuit this part from further executions by making the value of rankUp = 100 because no one will create a board that big haha.
                 var piece = chess.get(square);
-                if(piece && piece.type != 'q' && piece.type !='b') rankUp=100;
+                if(piece && ((piece.type != 'q' && piece.type !='b') || piece.color!=color)) rankUp=100;
             }
             
             //If not the first rank, do some shit
@@ -425,9 +556,23 @@ $(document).ready(function() {
                 result.push(square);
                 //If there is a piece on this square, short circuit this part from further executions by making the value of rankDown = 0 because that'll do pig, that'll do.
                 var piece = chess.get(square);
-                if(piece && piece.type != 'q' && piece.type !='b') rankDown = 0;
+                if(piece && ((piece.type != 'q' && piece.type !='b') || piece.color!=color)) rankDown = 0;
             }
         }
+        
+        if(attackedPieceMarking==false) return result;
+        
+        //update the lightest attacking piece map
+        var attackingMap;
+        if(color == WHITE) attackingMap = lightestAttackingPieceMapWhite;
+        else attackingMap = lightestAttackingPieceMapBlack;
+        $.each(result, function(index, value) {
+            //if none attacking yet
+            if(attackingMap[value]==null || attackingMap[value]>3) {
+               attackingMap[value] = 3; //3 for Knight and Bishop
+            }
+        });
+        
         return result;
     }
 });
