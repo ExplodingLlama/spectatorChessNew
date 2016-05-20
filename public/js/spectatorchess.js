@@ -41,7 +41,9 @@ $(document).ready(function() {
     board.start(true);
     
     //index = square name, value = numerical value, +ve for white territory, -ve for black
-    var territoryMap = {}; 
+    var territoryMap = {};
+    //this below map is similar to territory map except, pawns are not special
+    var numberOfAttackersMap = {};
     
     //index = square name, value = numerical value of the lightest piece attacking this square
     var lightestAttackingPieceMapWhite = {}; 
@@ -54,8 +56,20 @@ $(document).ready(function() {
     
     var pgnMoveIndex = 0;
     
+    init();
+    
     makeGoodThingsHappen(board.fen());
 
+    function init() {
+        $.each(files, function(fileIndex, fileValue) {
+            $.each(ranks, function(rankIndex, rankValue) {
+                var square = fileValue+rankValue;
+                territoryMap[square] = 0;
+                numberOfAttackersMap[square] = 0;
+            });
+        });
+    }
+    
     //Called when FEN is being added
     $('#fenbutton').on('click', function() {
         var fen = $('#feninput').val() || START_FEN;
@@ -140,9 +154,9 @@ $(document).ready(function() {
                 var piece = chess.get(square);
                 
                 if(piece!=null){
-                    //if the piece is on a territory of the other color mark it attacked
-                    if((territoryMap[square]>0 && piece.color == BLACK) ||
-                       (territoryMap[square]<0 && piece.color == WHITE)) {
+                    //if the piece is on a square that is attacked more times than it is defended, mark it attacked
+                    if((numberOfAttackersMap[square]>0 && piece.color == BLACK) ||
+                       (numberOfAttackersMap[square]<0 && piece.color == WHITE)) {
                         attackedPieces.push(square);
                     }
                     //if the piece is attacked by a lighter piece, mark it attacked
@@ -216,15 +230,13 @@ $(document).ready(function() {
                
                $.each(attckedSquaresPerPiece, function(index, value) {
                    
-                   if(territoryMap[value] == null) {
-                       territoryMap[value] = 0;
-                   }
-                   
                    if(color == WHITE) {
+                       numberOfAttackersMap[value]++;
                        if(piece.type == 'p') territoryMap[value]+=3;
                        else territoryMap[value]++;
                    }
                    else {
+                       numberOfAttackersMap[value]--;
                        if(piece.type == 'p') territoryMap[value]-=3;
                        else territoryMap[value]--;
                    }
@@ -243,6 +255,7 @@ $(document).ready(function() {
         $.each(files, function(fileIndex, fileValue) {
            $.each(ranks, function(rankIndex, rankValue) {
                territoryMap[fileValue+rankValue] = 0;
+               numberOfAttackersMap[fileValue+rankValue] = 0;
                $('#' + squareElementIds[fileValue+rankValue]).removeClass(CSS.blackT1);
                $('#' + squareElementIds[fileValue+rankValue]).removeClass(CSS.whiteT1);
                $('#' + squareElementIds[fileValue+rankValue]).removeClass(CSS.blackT2);
