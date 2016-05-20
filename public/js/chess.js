@@ -161,6 +161,8 @@ window['Chess'] = window['Chess'] || function(fen) {
   var move_number = 1;
   var history = [];
   var header = {};
+    
+  var pgnMoveList = [];
 
   /* if the user passes in a fen string, load it, else default to
    * starting position
@@ -1488,6 +1490,8 @@ window['Chess'] = window['Chess'] || function(fen) {
       /* delete empty entries */
       moves = moves.join(',').replace(/,,+/g, ',').split(',');
       var move = '';
+        
+      pgnMoveList = moves;  
 
       for (var half_move = 0; half_move < moves.length - 1; half_move++) {
         move = get_move_obj(moves[half_move]);
@@ -1613,6 +1617,10 @@ window['Chess'] = window['Chess'] || function(fen) {
       }
 
       return null;
+    },
+      
+    get_pgn_move_list: function(){
+        return pgnMoveList;
     },
 
     history: function(options) {

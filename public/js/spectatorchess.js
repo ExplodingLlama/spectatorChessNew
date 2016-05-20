@@ -1,6 +1,6 @@
 $(document).ready(function() {
     
-    "use strict";
+    'use strict';
     
     var WHITE = 'w';
     var BLACK = 'b';
@@ -38,6 +38,12 @@ $(document).ready(function() {
     
     var territoryMap = {};
     
+    var pgnMoveList = [];
+    
+    var pgnMoveIndex = 0;
+    
+    var lastValidFenFromChessJs = null;
+    
     makeGoodThingsHappen(board.fen());
 
     //Called when FEN is being added
@@ -47,7 +53,46 @@ $(document).ready(function() {
         makeGoodThingsHappen(fen);
     });
 
-
+    //Called when PGN is being added
+    $('#pgnbutton').on('click', function() {
+        var pgn = $('#pgninput').val();
+        chess.load_pgn(pgn);
+        pgnMoveList = chess.get_pgn_move_list();
+        pgnMoveIndex = 0;
+        chess.reset();
+        lastValidFenFromChessJs = chess.fen();
+        board.position(lastValidFenFromChessJs);
+    });
+    
+    $('#forwardbutton').on('click', function() {
+        //get move from the pgn move list
+        var move = pgnMoveList[pgnMoveIndex];
+        if(pgnMoveIndex>=pgnMoveList.length-1) return;
+           
+        pgnMoveIndex++;
+        //make move on chess.js
+        chess.load(lastValidFenFromChessJs);
+        chess.move(move);
+        var fen = chess.fen();
+        board.position(fen);
+        lastValidFenFromChessJs = fen;
+    });
+    
+    $('#backbutton').on('click', function() {
+        var i = 0;
+        if(pgnMoveIndex<=0) return;
+            
+        pgnMoveIndex--;
+        chess.reset();
+        for(i=0;i<pgnMoveIndex;i++){
+            var move = pgnMoveList[i];
+            //make move on chess.js
+            chess.move(move);
+        }
+        var fen = chess.fen();
+        board.position(fen);
+        lastValidFenFromChessJs = fen;
+    });
         
     //Make a valid FEN string for Chess.js castling info is not required
     function getValidFen(fen, color) {
@@ -103,8 +148,14 @@ $(document).ready(function() {
                        territoryMap[value] = 0;
                    }
                    
-                   if(color == WHITE) territoryMap[value]++;
-                   else territoryMap[value]--;
+                   if(color == WHITE) {
+                       if(piece.type == 'p') territoryMap[value]+=3;
+                       else territoryMap[value]++;
+                   }
+                   else {
+                       if(piece.type == 'p') territoryMap[value]-=3;
+                       else territoryMap[value]--;
+                   }
                });
            }); 
         });

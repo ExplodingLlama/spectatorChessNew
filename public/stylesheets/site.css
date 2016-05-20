@@ -50,7 +50,7 @@ code {
 }
 
 .headtext {
-    width: 100%;
+    width: 75%;
     text-align: center;
     padding: 20px;
     text-transform: uppercase;
@@ -58,6 +58,8 @@ code {
     word-spacing: 10px;
     font-family: "Times New Roman", Times, serif;
     font-size: 20px;
+    margin-left: auto; 
+    margin-right: auto;
 }
 
 .navbar-link {
