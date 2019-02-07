@@ -8,7 +8,8 @@
   },
   "main": "spectatorchess/js/spectatorchess.js",
   "dependencies": {
-    "mime" : "~1.2.7"
+    "mime": "~1.2.7",
+    "npm": "^6.7.0"
   },
   "devDependencies": {},
   "scripts": {
